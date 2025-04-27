@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; // Ensure this is added for graphs
+import 'package:fl_chart/fl_chart.dart';
+
+enum GraphType { line, bar, pie }
 
 class GraphWidget extends StatelessWidget {
-  final bool isWeekly;
+  final GraphType graphType;
+  final List<double> data;
+  final List<String>? labels; // For bar/pie charts
+  final String? title;
+  final Color color;
 
-  GraphWidget({required this.isWeekly}); // Accept the isWeekly parameter
+  const GraphWidget({
+    Key? key,
+    required this.graphType,
+    required this.data,
+    this.labels,
+    this.title,
+    this.color = Colors.blue,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -18,49 +31,91 @@ class GraphWidget extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
-            isWeekly ? "Weekly Progress" : "Monthly Progress",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+          if (title != null)
+            Text(title!, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           SizedBox(height: 10),
           Expanded(
-            child: LineChart(
-              LineChartData(
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: true),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          isWeekly
-                              ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][value.toInt()]
-                              : ["Week 1", "Week 2", "Week 3", "Week 4"][value.toInt()],
-                          style: TextStyle(fontSize: 12),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: isWeekly
-                        ? [FlSpot(0, 2), FlSpot(1, 2.5), FlSpot(2, 3), FlSpot(3, 2.8), FlSpot(4, 2.2), FlSpot(5, 2.4), FlSpot(6, 2.7)]
-                        : [FlSpot(0, 10), FlSpot(1, 12), FlSpot(2, 15), FlSpot(3, 14)], 
-                    isCurved: true,
-                    barWidth: 3,
-                    color: Colors.blue,
-
-                    belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.3)),
-                  ),
-                ],
-              ),
-            ),
+            child: _buildChart(),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildChart() {
+    switch (graphType) {
+      case GraphType.line:
+        return LineChart(
+          LineChartData(
+            titlesData: FlTitlesData(
+              leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (value, meta) {
+                    if (labels != null && value.toInt() < labels!.length) {
+                      return Text(labels![value.toInt()], style: TextStyle(fontSize: 12));
+                    }
+                    return Text('');
+                  },
+                ),
+              ),
+            ),
+            lineBarsData: [
+              LineChartBarData(
+                spots: [
+                  for (int i = 0; i < data.length; i++) FlSpot(i.toDouble(), data[i])
+                ],
+                isCurved: true,
+                barWidth: 3,
+                color: color,
+                belowBarData: BarAreaData(show: true, color: color.withOpacity(0.3)),
+              ),
+            ],
+          ),
+        );
+      case GraphType.bar:
+        return BarChart(
+          BarChartData(
+            titlesData: FlTitlesData(
+              leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (value, meta) {
+                    if (labels != null && value.toInt() < labels!.length) {
+                      return Text(labels![value.toInt()], style: TextStyle(fontSize: 12));
+                    }
+                    return Text('');
+                  },
+                ),
+              ),
+            ),
+            barGroups: [
+              for (int i = 0; i < data.length; i++)
+                BarChartGroupData(x: i, barRods: [BarChartRodData(toY: data[i], color: color)])
+            ],
+          ),
+        );
+      case GraphType.pie:
+        return PieChart(
+          PieChartData(
+            sections: [
+              for (int i = 0; i < data.length; i++)
+                PieChartSectionData(
+                  value: data[i],
+                  color: color.withOpacity(0.5 + 0.5 * (i / data.length)),
+                  title: labels != null && i < labels!.length ? labels![i] : '',
+                  radius: 50,
+                  titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
+                ),
+            ],
+            sectionsSpace: 2,
+            centerSpaceRadius: 30,
+          ),
+        );
+      default:
+        return Center(child: Text('Unknown chart type'));
+    }
   }
 }
